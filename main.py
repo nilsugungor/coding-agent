@@ -23,15 +23,33 @@ args = parser.parse_args()
 
 messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
 
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=messages,
-    config=types.GenerateContentConfig(
-    tools=[available_functions],
-    system_instruction=system_prompt,
-    temperature=0
+for i in range(20):
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=messages,
+        config=types.GenerateContentConfig(
+        tools=[available_functions],
+        system_instruction=system_prompt,
+        temperature=0
+        )
     )
-)
+
+    for candidate in response.candidates:
+        messages.append(candidate.content)
+
+    if response.candidates[0].content.parts[0].function_call:
+        function_responses = []
+        
+        for part in response.candidates[0].content.parts:
+            if part.function_call:
+                res = call_function(part.function_call)
+                function_responses.append(res.parts[0])
+
+        messages.append(types.Content(role="user", parts=function_responses))
+
+    else:
+        print(f"Final Response: {response.text}")
+        break
 
 if response.usage_metadata == None:
     raise RuntimeError("Usage metadata none failed api request!!!")
